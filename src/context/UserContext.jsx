@@ -6,6 +6,10 @@ const UserContext = createContext(null)
 
 const STORAGE_KEY = 'pivot_saved_users'
 const TOKEN_KEY = 'pivot_token'
+// Demo-only: persist the mock session so refresh / deep links survive.
+// (Real mode uses JWT; mock mode had only in-memory state, which kicked
+// demo visitors back to login on every refresh.)
+const DEMO_USER_KEY = 'pivot_demo_user'
 
 const ROWING_POSITIONS = [
   'Stroke Seat', '7 Seat', '6 Seat', '5 Seat', '4 Seat',
@@ -119,6 +123,15 @@ export function UserProvider({ children }) {
   useEffect(() => {
     async function restoreAuth() {
       if (isMockMode()) {
+        // Restore the persisted demo session so refresh / deep links keep you signed in.
+        try {
+          const raw = localStorage.getItem(DEMO_USER_KEY)
+          if (raw) {
+            const demoUser = JSON.parse(raw)
+            setUser(demoUser)
+            setCurrentUser(demoUser)
+          }
+        } catch { /* corrupted entry — stay logged out */ }
         setAuthRestored(true)
         return
       }
@@ -156,6 +169,7 @@ export function UserProvider({ children }) {
   const mockLogin = useCallback((data, rememberMe = false) => {
     setUser(data)
     setCurrentUser(data)
+    try { localStorage.setItem(DEMO_USER_KEY, JSON.stringify(data)) } catch { /* storage full/blocked */ }
     if (rememberMe) {
       setSavedProfiles(prev => {
         const existing = prev.findIndex(p => p.email === data.email)
@@ -229,6 +243,7 @@ export function UserProvider({ children }) {
     setUser(null)
     saveToken(null)
     setCurrentUser(null)
+    try { localStorage.removeItem(DEMO_USER_KEY) } catch { /* noop */ }
   }, [])
 
   const forgetProfile = useCallback((email) => {

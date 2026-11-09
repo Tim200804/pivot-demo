@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Navigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sun, Moon, ShipWheel, Users, ArrowRight, LogIn, UserPlus } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
@@ -19,7 +20,12 @@ export default function LoginPage() {
   const [sport, setSport] = useState('rowing')
 
   const { theme, cycleTheme } = useTheme()
-  const { savedProfiles } = useUser()
+  const { savedProfiles, user, authRestored } = useUser()
+
+  // Already signed in (restored demo session) — go straight to the app.
+  if (authRestored && user) {
+    return <Navigate to={user.role === 'coach' ? '/coach' : '/athlete'} replace />
+  }
 
   const savedForRole = useMemo(
     () => savedProfiles.filter(p => p.role === role && p.sport === sport),

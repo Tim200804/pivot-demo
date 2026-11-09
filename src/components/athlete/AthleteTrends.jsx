@@ -1,0 +1,299 @@
+import { useState, useMemo, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import { TrendingUp, Activity, Heart, Moon, BarChart3, Dumbbell } from 'lucide-react'
+import Sidebar from '../ui/Sidebar'
+import HealthTrendChart from '../ui/HealthTrendChart'
+import TrainingImpactChart from '../ui/TrainingImpactChart'
+import { useTheme } from '../../context/ThemeContext'
+import { useUser } from '../../context/UserContext'
+import { useAthleteData } from '../../context/AthleteDataContext'
+import { isMockMode, apiGetTrainingCorrelation, apiGetTrainingSuggestion } from '../../config/api'
+
+const RANGE_OPTIONS = [
+  { value: '7d', label: '7 Days' },
+  { value: '30d', label: '30 Days' },
+  { value: '180d', label: '6 Months' },
+]
+
+function generateRangeData(athlete, range) {
+  const h = athlete.health || []
+  const t = athlete.training || []
+
+  // Real mode: backend already returns the requested window (7/30/180 days)
+  // with real date strings, so render it as-is. Only fall back to the 7-day
+  // view when there is not enough data to plot at all.
+  if (range === '7d' || h.length < 2) {
+    return { health: h, training: t, labelPrefix: '7-Day', trendLabel: '7-Day' }
+  }
+  const labelPrefix = range === '30d' ? '30-Day' : '6-Month'
+  return { health: h, training: t, labelPrefix, trendLabel: labelPrefix }
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="glass-card p-5 animate-pulse">
+      <div className="h-4 w-48 bg-pivot-100 dark:bg-slate-700 rounded mb-4" />
+      <div className="h-48 bg-pivot-50 dark:bg-slate-800/50 rounded-xl" />
+    </div>
+  )
+}
+
+export default function AthleteTrends() {
+  const { theme } = useTheme()
+  const { user } = useUser()
+  const { athlete, ensureTrendMetrics } = useAthleteData()
+  const isDark = theme === 'dark'
+  const [timeRange, setTimeRange] = useState('7d')
+  const [healthRows, setHealthRows] = useState([])
+  const [trainingRows, setTrainingRows] = useState([])
+  const [metricsLoading, setMetricsLoading] = useState(!isMockMode())
+  const [correlation, setCorrelation] = useState(null)
+  const [suggestion, setSuggestion] = useState(null)
+  const [suggestionLoading, setSuggestionLoading] = useState(false)
+
+  useEffect(() => {
+    if (isMockMode()) {
+      setHealthRows(athlete?.health || [])
+      setTrainingRows(athlete?.training || [])
+      setCorrelation({ correlations: { loadVsHrv: -0.72, loadVsRhr: 0.68, loadVsSleep: 0.55 } })
+      setSuggestion({ text: 'Reduce volume by 20% for 2 days; prioritize sleep before next high-intensity session.', actions: ['Drop second practice', 'Target 8+ hrs sleep', 'Light mobility only'] })
+      setMetricsLoading(false)
+      return
+    }
+    if (!user?.id) return
+
+    let cancelled = false
+    setMetricsLoading(true)
+
+    ensureTrendMetrics(timeRange)
+      .then(({ health, training }) => {
+        if (cancelled) return
+        setHealthRows(health)
+        setTrainingRows(training)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHealthRows([])
+          setTrainingRows([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setMetricsLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [user?.id, timeRange, ensureTrendMetrics, athlete, isMockMode])
+
+  useEffect(() => {
+    if (isMockMode() || !user?.id) return
+    let cancelled = false
+    apiGetTrainingCorrelation(user.id, { days: 28 })
+      .then(res => { if (!cancelled) setCorrelation(res?.correlation || res || null) })
+      .catch(() => { if (!cancelled) setCorrelation(null) })
+
+    setSuggestionLoading(true)
+    apiGetTrainingSuggestion(user.id, { days: 14 })
+      .then(res => { if (!cancelled) setSuggestion(res?.suggestion || null) })
+      .catch(() => { if (!cancelled) setSuggestion(null) })
+      .finally(() => { if (!cancelled) setSuggestionLoading(false) })
+
+    return () => { cancelled = true }
+  }, [user?.id])
+
+  const data = useMemo(() => generateRangeData({ health: healthRows, training: trainingRows }, timeRange), [healthRows, trainingRows, timeRange])
+
+  return (
+    <div className="min-h-[100dvh] flex bg-surface-light dark:bg-surface-dark transition-colors duration-300">
+      <Sidebar role="athlete" />
+      <div className="flex-1 flex flex-col min-h-[100dvh] overflow-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto w-full space-y-6">
+          {/* Header with time-range selector */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-pivot-900 dark:text-white tracking-tight">Health Trends</h2>
+              <p className="text-sm text-pivot-500 dark:text-slate-400 mt-1">Long-term analysis of your biometric data</p>
+            </div>
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-pivot-50 dark:bg-slate-800/50 border border-pivot-100 dark:border-slate-700/30">
+              {RANGE_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setTimeRange(value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${
+                    timeRange === value
+                      ? 'bg-white dark:bg-slate-700 text-pivot-900 dark:text-white shadow-sm'
+                      : 'text-pivot-400 dark:text-slate-400 hover:text-pivot-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Health Trends */}
+          {metricsLoading ? (
+            <ChartSkeleton />
+          ) : (
+          <motion.div
+            key={`health-${timeRange}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <HealthTrendChart
+              data={data.health}
+              title={`${data.labelPrefix} Health Trends — HRV, RHR, Sleep`}
+              metrics={['hrv', 'rhr', 'sleepHours']}
+              darkMode={isDark}
+            />
+          </motion.div>
+          )}
+
+          {/* Training Load Overlay */}
+          {metricsLoading ? (
+            <ChartSkeleton />
+          ) : (
+          <motion.div
+            key={`impact-${timeRange}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <TrainingImpactChart
+              healthData={data.health}
+              trainingData={data.training}
+              title={`${data.labelPrefix} Training Load vs Recovery`}
+              darkMode={isDark}
+            />
+          </motion.div>
+          )}
+
+          {/* Training Trends */}
+          {metricsLoading ? (
+            <ChartSkeleton />
+          ) : (
+          <motion.div
+            key={`training-${timeRange}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18 }}
+          >
+            <HealthTrendChart
+              data={data.training}
+              title={`${data.labelPrefix} Training Load`}
+              metrics={['distance', 'avgSplit']}
+              darkMode={isDark}
+            />
+          </motion.div>
+          )}
+
+          {/* Trend Analysis Cards */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Dumbbell size={16} className="text-accent-blue" />
+                <h3 className="text-sm font-semibold text-pivot-700 dark:text-slate-300">Training-Recovery Correlation</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-pivot-50 dark:bg-slate-800/50">
+                  <div className="flex items-center gap-2">
+                    <Heart size={14} className="text-rose-500" />
+                    <span className="text-xs text-pivot-600 dark:text-slate-300">Load vs HRV</span>
+                  </div>
+                  <span className={`text-xs font-semibold ${correlation?.correlations?.loadVsHrv != null ? (correlation.correlations.loadVsHrv < -0.3 ? 'text-rose-500' : 'text-emerald-500') : 'text-slate-400'}`}>
+                    {correlation?.correlations?.loadVsHrv != null ? correlation.correlations.loadVsHrv.toFixed(2) : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-pivot-50 dark:bg-slate-800/50">
+                  <div className="flex items-center gap-2">
+                    <Activity size={14} className="text-amber-500" />
+                    <span className="text-xs text-pivot-600 dark:text-slate-300">Load vs RHR</span>
+                  </div>
+                  <span className={`text-xs font-semibold ${correlation?.correlations?.loadVsRhr != null ? (correlation.correlations.loadVsRhr > 0.3 ? 'text-rose-500' : 'text-emerald-500') : 'text-slate-400'}`}>
+                    {correlation?.correlations?.loadVsRhr != null ? correlation.correlations.loadVsRhr.toFixed(2) : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-pivot-50 dark:bg-slate-800/50">
+                  <div className="flex items-center gap-2">
+                    <Moon size={14} className="text-indigo-500" />
+                    <span className="text-xs text-pivot-600 dark:text-slate-300">Load vs Sleep</span>
+                  </div>
+                  <span className={`text-xs font-semibold ${correlation?.correlations?.loadVsSleep != null ? (correlation.correlations.loadVsSleep < -0.3 ? 'text-rose-500' : 'text-emerald-500') : 'text-slate-400'}`}>
+                    {correlation?.correlations?.loadVsSleep != null ? correlation.correlations.loadVsSleep.toFixed(2) : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={16} className="text-accent-teal" />
+                  <h3 className="text-sm font-semibold text-pivot-700 dark:text-slate-300">AI Training Adjustment</h3>
+                </div>
+                {suggestion?.riskLevel && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                    suggestion.riskLevel === 'high' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' :
+                    suggestion.riskLevel === 'moderate' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                  }`}>
+                    {suggestion.riskLevel} risk
+                  </span>
+                )}
+              </div>
+              {suggestionLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-pivot-200 dark:border-slate-600 border-t-accent-teal rounded-full animate-spin" />
+                </div>
+              ) : suggestion?.hasEnoughData === false ? (
+                <div className="p-3 rounded-xl bg-pivot-50 dark:bg-slate-800/50">
+                  <p className="text-xs text-pivot-500 dark:text-slate-400">{suggestion.suggestion}</p>
+                </div>
+              ) : suggestion ? (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl bg-accent-teal/5 dark:bg-teal-900/10 border border-accent-teal/10 dark:border-teal-800/30">
+                    <p className="text-xs font-medium text-pivot-900 dark:text-white mb-1">Suggestion</p>
+                    <p className="text-xs text-pivot-600 dark:text-slate-300 leading-relaxed">{suggestion.suggestion}</p>
+                  </div>
+                  {suggestion.actions?.length > 0 && (
+                    <div className="p-3 rounded-xl bg-pivot-50 dark:bg-slate-800/50">
+                      <p className="text-xs font-medium text-pivot-900 dark:text-white mb-1.5">Recommended Actions</p>
+                      <ul className="space-y-1.5">
+                        {suggestion.actions.map((action, idx) => (
+                          <li key={idx} className="flex items-start gap-1.5 text-xs text-pivot-600 dark:text-slate-300">
+                            <span className="w-1 h-1 rounded-full bg-accent-teal mt-1.5 shrink-0" />
+                            {action}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {suggestion.metrics && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2 rounded-xl bg-pivot-50 dark:bg-slate-800/50 text-center">
+                        <p className="text-xs font-semibold text-pivot-900 dark:text-white">{suggestion.metrics.recentLoad}</p>
+                        <p className="text-[10px] text-pivot-400">Recent Load</p>
+                      </div>
+                      <div className="p-2 rounded-xl bg-pivot-50 dark:bg-slate-800/50 text-center">
+                        <p className={`text-xs font-semibold ${suggestion.metrics.hrvDeltaPct < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                          {suggestion.metrics.hrvDeltaPct > 0 ? '+' : ''}{suggestion.metrics.hrvDeltaPct}%
+                        </p>
+                        <p className="text-[10px] text-pivot-400">HRV Δ</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-pivot-50 dark:bg-slate-800/50">
+                  <p className="text-xs text-pivot-500 dark:text-slate-400">No training suggestion available.</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          <div className="h-16 md:h-4" />
+        </main>
+      </div>
+    </div>
+  )
+}

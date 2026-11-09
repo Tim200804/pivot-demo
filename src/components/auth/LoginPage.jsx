@@ -22,15 +22,16 @@ export default function LoginPage() {
   const { theme, cycleTheme } = useTheme()
   const { savedProfiles, user, authRestored } = useUser()
 
-  // Already signed in (restored demo session) — go straight to the app.
-  if (authRestored && user) {
-    return <Navigate to={user.role === 'coach' ? '/coach' : '/athlete'} replace />
-  }
-
   const savedForRole = useMemo(
     () => savedProfiles.filter(p => p.role === role && p.sport === sport),
     [savedProfiles, role, sport]
   )
+
+  // Already signed in (restored demo session) — go straight to the app.
+  // Must stay below every hook: an early return before useMemo breaks hook order.
+  if (authRestored && user) {
+    return <Navigate to={user.role === 'coach' ? '/coach' : '/athlete'} replace />
+  }
 
   const handlePickRole = (r) => {
     setRole(r)

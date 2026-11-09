@@ -61,7 +61,7 @@ const Sidebar = memo(function Sidebar({ role }) {
       {/* Logo */}
       <div className={`flex items-center gap-2.5 p-5 ${collapsed ? 'justify-center' : ''}`}>
         <div className="w-7 h-7 rounded-md bg-[#0a1050]/90 flex items-center justify-center shrink-0 overflow-hidden">
-          <img src="/pivot-logo.png" alt="Pivot Logo" className="w-5 h-5 object-contain" />
+          <img src={`${import.meta.env.BASE_URL}pivot-logo.png`} alt="Pivot Logo" className="w-5 h-5 object-contain" />
         </div>
         {!collapsed && (
           <div className="min-w-0">

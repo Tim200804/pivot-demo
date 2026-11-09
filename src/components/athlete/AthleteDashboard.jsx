@@ -199,7 +199,7 @@ export default function AthleteDashboard() {
         <header className="md:hidden glass-card rounded-none border-b border-pivot-100/60 dark:border-slate-700/40 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-md bg-[#0a1050]/90 flex items-center justify-center overflow-hidden">
-              <img src="/pivot-logo.png" alt="Pivot Logo" className="w-5 h-5 object-contain" />
+              <img src={`${import.meta.env.BASE_URL}pivot-logo.png`} alt="Pivot Logo" className="w-5 h-5 object-contain" />
             </div>
             <h1 className="font-bold text-pivot-900 dark:text-white">Pivot</h1>
           </div>

@@ -41,7 +41,7 @@ export default function SplashScreen({ onComplete }) {
             className="relative z-10"
           >
             <img
-              src="/pivot-logo.png"
+              src={`${import.meta.env.BASE_URL}pivot-logo.png`}
               alt="Pivot Logo"
               className="w-56 h-auto object-contain drop-shadow-[0_0_24px_rgba(59,130,246,0.25)]"
             />

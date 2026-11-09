@@ -18,7 +18,7 @@ export default function BrandPanel() {
       <div className="relative z-10 flex flex-col justify-between p-12 xl:p-14 h-full">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <img
-            src="/pivot-logo.png"
+            src={`${import.meta.env.BASE_URL}pivot-logo.png`}
             alt="Pivot Logo"
             className="w-48 h-auto object-contain drop-shadow-[0_0_16px_rgba(59,130,246,0.3)] mb-2"
           />

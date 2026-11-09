@@ -31,7 +31,7 @@ export default class ErrorBoundary extends Component {
       <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-surface-light dark:bg-surface-dark p-6 text-center">
         <div className="w-20 h-20 mb-6 rounded-3xl bg-gradient-to-br from-pivot-800 to-slate-900 flex items-center justify-center shadow-xl shadow-pivot-900/20">
           <img
-            src="/pivot-logo.png"
+            src={`${import.meta.env.BASE_URL}pivot-logo.png`}
             alt="Pivot"
             className="w-12 h-12 object-contain"
             onError={(e) => {

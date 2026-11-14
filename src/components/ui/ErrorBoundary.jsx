@@ -16,9 +16,13 @@ export default class ErrorBoundary extends Component {
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null })
+    // Full reload beats in-place retry for chunk/network failures — it
+    // re-fetches index.html and the entire asset graph fresh.
     if (typeof this.props.onRetry === 'function') {
+      this.setState({ hasError: false, error: null })
       this.props.onRetry()
+    } else {
+      window.location.reload()
     }
   }
 

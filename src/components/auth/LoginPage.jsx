@@ -48,6 +48,13 @@ export default function LoginPage() {
   const handlePickRole = (r) => {
     setRole(r)
     setStage('signin')
+    // Warm the dashboard chunk while the user reads the sign-in form,
+    // so the post-login navigation renders instantly.
+    if (r === 'athlete') {
+      const warm = () => import('../athlete/AthleteDashboard')
+      if (window.requestIdleCallback) window.requestIdleCallback(warm, { timeout: 2000 })
+      else setTimeout(warm, 300)
+    }
   }
 
   const handleBackToRole = () => {

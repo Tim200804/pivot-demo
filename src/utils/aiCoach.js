@@ -1,9 +1,10 @@
 // AI Coach — Personalized psychological insight + chat with memory
 // Uses athlete's 7-day data + today's check-in + conversation history
-// Always calls the real Kimi-backed backend (/api/ai/*), in both mock and real auth modes.
-// Rule-based helpers are used only when the API is unreachable.
+// Real mode calls the Kimi-backed backend (/api/ai/*); mock (demo) mode is
+// fully offline and uses the deterministic rule-based fallbacks directly —
+// the demo site must never phone home.
 
-import { apiAiFetch } from '../config/api'
+import { apiAiFetch, isMockMode } from '../config/api'
 
 const STORAGE_KEY = 'pivot_ai_chat_history'
 
@@ -63,6 +64,7 @@ Use "you" language. Be human, not robotic. Keep it under 60 words.`
  * Generate insight using AI API
  */
 async function generateAIInsight(athlete, checkin) {
+  if (isMockMode()) return null // demo build: fully offline
   try {
     const data = await apiAiFetch('/api/ai/insight', {
       method: 'POST',
@@ -79,6 +81,7 @@ async function generateAIInsight(athlete, checkin) {
  * Generate Low Period Support cards using AI API
  */
 async function generateAILowPeriodSupport(athlete, checkin) {
+  if (isMockMode()) return null // demo build: fully offline
   try {
     const data = await apiAiFetch('/api/ai/low-period-support', {
       method: 'POST',
@@ -96,6 +99,7 @@ async function generateAILowPeriodSupport(athlete, checkin) {
  * Returns the full text once the backend finishes generating.
  */
 async function fetchAIChatResponse(athlete, checkin, messages) {
+  if (isMockMode()) return null // demo build: fully offline
   try {
     const data = await apiAiFetch('/api/ai/chat', {
       method: 'POST',

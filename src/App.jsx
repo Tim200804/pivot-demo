@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ThemeProvider } from './context/ThemeContext'
@@ -8,23 +8,25 @@ import { AthleteDataProvider } from './context/AthleteDataContext'
 import { MoodColorProvider } from './context/MoodColorContext'
 import SplashScreen from './components/auth/SplashScreen'
 import ErrorBoundary from './components/ui/ErrorBoundary'
+import { lazyWithRetry } from './utils/lazyWithRetry'
 
 // Eager load only the login page for fast first paint
 import LoginPage from './components/auth/LoginPage'
 import ForgotPasswordPage from './components/auth/ForgotPasswordPage'
 
-// Lazy load all other routes to reduce initial bundle
-const AthleteOnboarding = lazy(() => import('./components/auth/AthleteOnboarding'))
-const AthleteDashboard = lazy(() => import('./components/athlete/AthleteDashboard'))
-const AthleteAlertCenter = lazy(() => import('./components/athlete/AthleteAlertCenter'))
-const AthleteCheckinHistory = lazy(() => import('./components/athlete/AthleteCheckinHistory'))
-const AthleteTrends = lazy(() => import('./components/athlete/AthleteTrends'))
-const CoachDashboard = lazy(() => import('./components/coach/CoachDashboard'))
-const CoachAlertCenter = lazy(() => import('./components/coach/CoachAlertCenter'))
-const CoachRoster = lazy(() => import('./components/coach/CoachRoster'))
-const CoachSubstitutionPage = lazy(() => import('./components/coach/CoachSubstitutionPage'))
-const AthleteSubstitutionPage = lazy(() => import('./components/athlete/AthleteSubstitutionPage'))
-const SettingsPage = lazy(() => import('./components/ui/SettingsPage'))
+// Lazy load all other routes to reduce initial bundle.
+// lazyWithRetry: stale cached chunks (post-deploy) auto-recover via one reload.
+const AthleteOnboarding = lazyWithRetry(() => import('./components/auth/AthleteOnboarding'))
+const AthleteDashboard = lazyWithRetry(() => import('./components/athlete/AthleteDashboard'))
+const AthleteAlertCenter = lazyWithRetry(() => import('./components/athlete/AthleteAlertCenter'))
+const AthleteCheckinHistory = lazyWithRetry(() => import('./components/athlete/AthleteCheckinHistory'))
+const AthleteTrends = lazyWithRetry(() => import('./components/athlete/AthleteTrends'))
+const CoachDashboard = lazyWithRetry(() => import('./components/coach/CoachDashboard'))
+const CoachAlertCenter = lazyWithRetry(() => import('./components/coach/CoachAlertCenter'))
+const CoachRoster = lazyWithRetry(() => import('./components/coach/CoachRoster'))
+const CoachSubstitutionPage = lazyWithRetry(() => import('./components/coach/CoachSubstitutionPage'))
+const AthleteSubstitutionPage = lazyWithRetry(() => import('./components/athlete/AthleteSubstitutionPage'))
+const SettingsPage = lazyWithRetry(() => import('./components/ui/SettingsPage'))
 
 const pageVariants = {
   initial: { opacity: 0 },

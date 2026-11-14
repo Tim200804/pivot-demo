@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sun, Moon, ShipWheel, Users, ArrowRight, LogIn, UserPlus } from 'lucide-react'
+import { Sun, Moon, ShipWheel, Users, ArrowRight, LogIn, UserPlus, CheckCircle2 } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
 import { useUser } from '../../context/UserContext'
 import BrandPanel from './BrandPanel'
@@ -18,6 +18,8 @@ export default function LoginPage() {
   const [stage, setStage] = useState('role')
   const [role, setRole] = useState(null)
   const [sport, setSport] = useState('rowing')
+  const [resetToast, setResetToast] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const { theme, cycleTheme } = useTheme()
   const { savedProfiles, user, authRestored } = useUser()
@@ -26,6 +28,16 @@ export default function LoginPage() {
     () => savedProfiles.filter(p => p.role === role && p.sport === sport),
     [savedProfiles, role, sport]
   )
+
+  // One-time toast after "Reset demo data" (redirected here with ?reset=1)
+  useEffect(() => {
+    if (searchParams.get('reset')) {
+      setResetToast(true)
+      setSearchParams({}, { replace: true })
+      const t = setTimeout(() => setResetToast(false), 4000)
+      return () => clearTimeout(t)
+    }
+  }, [searchParams, setSearchParams])
 
   // Already signed in (restored demo session) — go straight to the app.
   // Must stay below every hook: an early return before useMemo breaks hook order.
@@ -142,6 +154,20 @@ export default function LoginPage() {
           </AnimatePresence>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {resetToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 text-white shadow-xl text-sm font-medium"
+          >
+            <CheckCircle2 size={18} />
+            Demo data has been reset to the initial state
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

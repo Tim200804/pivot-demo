@@ -1,8 +1,12 @@
 // In-memory mock backend for the public Pivot demo (GitHub Pages).
-// No server, no real data — everything lives in this module's memory and
-// resets on page reload. Shapes mirror pivot-backend's public API responses.
+// No server, no real data — all mutable state lives in a persisted "world"
+// (see demoWorld.js): one world per browser, shared by every demo persona.
+// Shapes mirror pivot-backend's public API responses.
 
 import { ATHLETES } from '../data/mockData'
+import { getInitialWorld, saveWorld, resetDemoWorld } from './demoWorld'
+
+export { resetDemoWorld }
 
 export const DEMO_COACH = {
   id: 'coach-1',
@@ -15,17 +19,33 @@ export const DEMO_COACH = {
   coachRole: 'Head Coach',
 }
 
-export const DEMO_ATHLETE = {
-  id: 'ath-003',
-  email: 'm.smith@pivot.demo',
-  name: 'Morgan Smith',
+// Six demo athlete accounts matching the coach roster 1:1 (names must match
+// ATHLETES so mockAthleteForUser resolves each persona's own dashboard data).
+export const DEMO_ATHLETES = ATHLETES.map(a => ({
+  id: a.id,
+  email: `${a.name.toLowerCase().replace(/[^a-z]+/g, '.')}@pivot.demo`,
+  name: a.name,
   role: 'athlete',
   sport: 'rowing',
-  school: 'University of Pennsylvania',
-  teamName: 'Varsity Heavyweight 8+',
-  position: '3 Seat',
-  height: 196,
-  weight: 89,
+  school: a.school,
+  teamName: a.team,
+  position: a.position,
+  height: a.height,
+  weight: a.weight,
+  status: a.status,
+  alertLevel: a.alertLevel || null,
+  recovering: !!a.recovering,
+}))
+
+const STATUS_COLORS = {
+  good: '#10b981',
+  warning: '#f59e0b',
+  danger: '#f43f5e',
+  urgent: '#a855f7',
+}
+
+export function athleteStatusColor(a) {
+  return STATUS_COLORS[a?.status] || '#10b981'
 }
 
 let currentUser = null
@@ -38,144 +58,10 @@ export function getCurrentUser() {
   return currentUser
 }
 
-const daysFromNow = (n, hour = 9) => {
-  const d = new Date()
-  d.setDate(d.getDate() + n)
-  d.setHours(hour, 0, 0, 0)
-  return d.toISOString()
-}
-
-const dateFromNow = (n) => daysFromNow(n).slice(0, 10)
-
 const athleteById = (id) => ATHLETES.find(a => a.id === id)
 
-// ── Substitution requests ────────────────────────────────────────────────
-let nextRequestId = 5
-
-let substitutionRequests = [
-  {
-    id: 1,
-    requesterId: 'ath-003',
-    requesterName: 'Morgan Smith',
-    requesterPosition: '3 Seat',
-    substituteId: 'ath-006',
-    substituteName: 'Taylor Brooks',
-    coachId: 'coach-1',
-    coachName: 'Sarah Mitchell',
-    position: '3 Seat',
-    trainingDate: dateFromNow(2),
-    reason: 'Orthodontist appointment after class',
-    needsSubstitute: true,
-    initiatedBy: 'athlete',
-    status: 'pending_teammate',
-    responseNote: '',
-    coachNote: '',
-    createdAt: daysFromNow(-1),
-    updatedAt: daysFromNow(-1),
-  },
-  {
-    id: 2,
-    requesterId: 'ath-001',
-    requesterName: 'Alex Chen',
-    requesterPosition: 'Stroke Seat',
-    substituteId: 'ath-003',
-    substituteName: 'Morgan Smith',
-    coachId: 'coach-1',
-    coachName: 'Sarah Mitchell',
-    position: 'Stroke Seat',
-    trainingDate: dateFromNow(3),
-    reason: 'Family commitment out of town',
-    needsSubstitute: true,
-    initiatedBy: 'athlete',
-    status: 'pending_teammate',
-    responseNote: '',
-    coachNote: '',
-    createdAt: daysFromNow(0, 8),
-    updatedAt: daysFromNow(0, 8),
-  },
-  {
-    id: 3,
-    requesterId: 'ath-003',
-    requesterName: 'Morgan Smith',
-    requesterPosition: '3 Seat',
-    substituteId: 'ath-002',
-    substituteName: 'Jordan Lee',
-    coachId: 'coach-1',
-    coachName: 'Sarah Mitchell',
-    position: '3 Seat',
-    trainingDate: dateFromNow(5),
-    reason: 'Midterm exam block — needs study day',
-    needsSubstitute: true,
-    initiatedBy: 'athlete',
-    status: 'coach_approved',
-    responseNote: 'Happy to cover, good luck with exams!',
-    coachNote: 'Approved — Jordan has been cleared for extra volume.',
-    createdAt: daysFromNow(-3),
-    updatedAt: daysFromNow(-1, 18),
-  },
-  {
-    id: 4,
-    requesterId: 'ath-003',
-    requesterName: 'Morgan Smith',
-    requesterPosition: '3 Seat',
-    substituteId: 'ath-006',
-    substituteName: 'Taylor Brooks',
-    coachId: 'coach-1',
-    coachName: 'Sarah Mitchell',
-    position: '3 Seat',
-    trainingDate: dateFromNow(4),
-    reason: 'Light recovery week — coach arranged',
-    needsSubstitute: true,
-    initiatedBy: 'coach',
-    status: 'pending_coach',
-    responseNote: '',
-    coachNote: '',
-    createdAt: daysFromNow(0, 7),
-    updatedAt: daysFromNow(0, 7),
-  },
-]
-
-// ── Messages ─────────────────────────────────────────────────────────────
-let nextMessageId = 4
-
-let messages = [
-  {
-    id: 1,
-    senderId: 'coach-1',
-    senderName: 'Sarah Mitchell',
-    recipientId: 'ath-003',
-    subject: 'How are you doing?',
-    body: 'Hi Morgan, I noticed your HRV has been trending down for three days and your check-ins show higher fatigue. How are you feeling?',
-    alertLevel: null,
-    alertType: null,
-    readAt: daysFromNow(-1, 20),
-    createdAt: daysFromNow(-1, 19),
-  },
-  {
-    id: 2,
-    senderId: 'ath-003',
-    senderName: 'Morgan Smith',
-    recipientId: 'coach-1',
-    subject: null,
-    body: 'Honestly pretty wiped — midterms plus morning practices. Sleeping maybe 4-5 hours. I\'m going to bed earlier this week.',
-    alertLevel: null,
-    alertType: null,
-    readAt: daysFromNow(-1, 22),
-    createdAt: daysFromNow(-1, 21),
-  },
-  {
-    id: 3,
-    senderId: 'coach-1',
-    senderName: 'Sarah Mitchell',
-    recipientId: 'ath-003',
-    subject: null,
-    body: 'Thanks for telling me. Let\'s cut Tuesday\'s volume in half and skip the erg test — check in with me Friday morning.',
-    alertLevel: null,
-    alertType: null,
-    readAt: null,
-    createdAt: daysFromNow(0, 8),
-  },
-]
+// ── World state (persisted) ──────────────────────────────────────────────
+const world = getInitialWorld()
 
 const ok = (data) => Promise.resolve({ success: true, ...data })
 const delay = (ms = 120) => new Promise(r => setTimeout(r, ms))
@@ -185,9 +71,9 @@ export async function mockListSubstitutionRequests() {
   await delay()
   const me = currentUser
   if (!me) return ok({ requests: [] })
-  if (me.role === 'coach') return ok({ requests: [...substitutionRequests] })
+  if (me.role === 'coach') return ok({ requests: [...world.substitutionRequests] })
   return ok({
-    requests: substitutionRequests.filter(r => r.requesterId === me.id || r.substituteId === me.id),
+    requests: world.substitutionRequests.filter(r => r.requesterId === me.id || r.substituteId === me.id),
   })
 }
 
@@ -213,7 +99,7 @@ export async function mockCreateSubstitutionRequest({ trainingDate, reason, subs
   const me = currentUser
   const sub = athleteById(substituteId)
   const req = {
-    id: nextRequestId++,
+    id: world.nextRequestId++,
     requesterId: me.id,
     requesterName: me.name,
     requesterPosition: me.position || '',
@@ -232,14 +118,16 @@ export async function mockCreateSubstitutionRequest({ trainingDate, reason, subs
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  substitutionRequests = [req, ...substitutionRequests]
+  world.substitutionRequests = [req, ...world.substitutionRequests]
+  saveWorld(world)
   return ok({ request: req })
 }
 
 function updateRequest(id, patch) {
-  const req = substitutionRequests.find(r => r.id === Number(id))
+  const req = world.substitutionRequests.find(r => r.id === Number(id))
   if (!req) return null
   Object.assign(req, patch, { updatedAt: new Date().toISOString() })
+  saveWorld(world)
   return req
 }
 
@@ -275,7 +163,7 @@ export async function mockCoachInitiateSubstitution({ athleteId, substituteId, t
   const athlete = athleteById(athleteId)
   const sub = athleteById(substituteId)
   const req = {
-    id: nextRequestId++,
+    id: world.nextRequestId++,
     requesterId: athlete?.id ?? athleteId,
     requesterName: athlete?.name ?? 'Athlete',
     requesterPosition: athlete?.position ?? '',
@@ -294,7 +182,8 @@ export async function mockCoachInitiateSubstitution({ athleteId, substituteId, t
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  substitutionRequests = [req, ...substitutionRequests]
+  world.substitutionRequests = [req, ...world.substitutionRequests]
+  saveWorld(world)
   return ok({ request: req })
 }
 
@@ -320,7 +209,7 @@ export async function mockListAthletes() {
 export async function mockGetConversation(otherUserId) {
   await delay()
   const me = currentUser
-  const rows = messages.filter(m =>
+  const rows = world.messages.filter(m =>
     (m.senderId === me?.id && m.recipientId === otherUserId)
     || (m.senderId === otherUserId && m.recipientId === me?.id))
   return ok({
@@ -332,7 +221,7 @@ export async function mockSendMessage({ recipientId, body, subject = null }) {
   await delay()
   const me = currentUser
   const msg = {
-    id: nextMessageId++,
+    id: world.nextMessageId++,
     senderId: me?.id,
     senderName: me?.name,
     recipientId,
@@ -343,14 +232,17 @@ export async function mockSendMessage({ recipientId, body, subject = null }) {
     readAt: null,
     createdAt: new Date().toISOString(),
   }
-  messages = [...messages, msg]
+  world.messages = [...world.messages, msg]
+  saveWorld(world)
   return ok({ message: msg })
 }
 
 export async function mockMarkMessageRead(id) {
   await delay()
-  messages = messages.map(m => m.id === Number(id) && !m.readAt
-    ? { ...m, readAt: new Date().toISOString() }
-    : m)
+  const target = world.messages.find(m => m.id === Number(id))
+  if (target && !target.readAt) {
+    target.readAt = new Date().toISOString()
+    saveWorld(world)
+  }
   return ok({})
 }

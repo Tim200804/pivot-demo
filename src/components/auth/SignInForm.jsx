@@ -1,28 +1,24 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Mail, Lock, CheckCircle2, Loader2, Play } from 'lucide-react'
+import { ArrowRight, Mail, Lock, CheckCircle2, Loader2, Play, UserRound } from 'lucide-react'
 import { useUser } from '../../context/UserContext'
 import { isMockMode } from '../../config/api'
-import { DEMO_COACH, DEMO_ATHLETE } from '../../config/mockBackend'
+import { DEMO_COACH, DEMO_ATHLETES, athleteStatusColor } from '../../config/mockBackend'
 
-const DEMO_ENTRIES = [
-  {
-    key: 'coach',
-    user: DEMO_COACH,
-    label: 'Explore the Coach Dashboard',
-    hint: 'Team health overview, alert queue, roster & substitutions',
-    to: '/coach',
-    gradient: 'linear-gradient(135deg, #14b8a6, #0d9488)',
-  },
-  {
-    key: 'athlete',
-    user: DEMO_ATHLETE,
-    label: "Explore the Athlete App",
-    hint: "Morgan Smith's live data — check-ins, trends, alerts",
-    to: '/athlete',
-    gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-  },
+const COACH_ENTRY = {
+  key: 'coach',
+  user: DEMO_COACH,
+  label: 'Explore the Coach Dashboard',
+  hint: 'Team health overview, alert queue, roster & substitutions',
+  to: '/coach',
+  gradient: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+}
+
+// Morgan first (richest storyline), then the rest of the roster
+const ORDERED_DEMO_ATHLETES = [
+  ...DEMO_ATHLETES.filter(a => a.id === 'ath-003'),
+  ...DEMO_ATHLETES.filter(a => a.id !== 'ath-003'),
 ]
 
 const fadeUp = {
@@ -142,29 +138,72 @@ export default function SignInForm({ role, sport, savedForRole }) {
 
   return (
     <motion.form key="signin" {...fadeUp} onSubmit={handleSubmit} className="space-y-5">
-      {isMockMode() && (
+      {isMockMode() && role === 'coach' && (
         <div className="space-y-2.5">
           <p className="text-xs font-semibold text-pivot-400 dark:text-slate-500 uppercase tracking-wider">
             One-click demo — no account needed
           </p>
-          {DEMO_ENTRIES.filter(entry => entry.user.role === role).map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              onClick={() => handleDemoEntry(entry)}
-              className="w-full p-3.5 rounded-2xl text-white text-left shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center gap-3"
-              style={{ background: entry.gradient }}
-            >
-              <span className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                <Play size={16} className="text-white" />
+          <button
+            type="button"
+            onClick={() => handleDemoEntry(COACH_ENTRY)}
+            className="w-full p-3.5 rounded-2xl text-white text-left shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center gap-3"
+            style={{ background: COACH_ENTRY.gradient }}
+          >
+            <span className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <Play size={16} className="text-white" />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold">{COACH_ENTRY.label}</span>
+              <span className="block text-[11px] text-white/80 truncate">{COACH_ENTRY.hint}</span>
+            </span>
+            <ArrowRight size={16} className="text-white/80 shrink-0" />
+          </button>
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-pivot-200 dark:border-slate-700" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="px-3 bg-surface-light dark:bg-surface-dark text-xs text-pivot-400 dark:text-slate-500">
+                or type any email to play around
               </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-semibold">{entry.label}</span>
-                <span className="block text-[11px] text-white/80 truncate">{entry.hint}</span>
-              </span>
-              <ArrowRight size={16} className="text-white/80 shrink-0" />
-            </button>
-          ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isMockMode() && role === 'athlete' && (
+        <div className="space-y-2.5">
+          <p className="text-xs font-semibold text-pivot-400 dark:text-slate-500 uppercase tracking-wider">
+            Pick an athlete account — one-click demo
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {ORDERED_DEMO_ATHLETES.map((athlete) => (
+              <button
+                key={athlete.id}
+                type="button"
+                onClick={() => handleDemoEntry({ user: athlete, to: '/athlete' })}
+                className="p-2.5 rounded-2xl border border-pivot-200 dark:border-slate-600 bg-white dark:bg-slate-800/60 hover:border-accent-blue dark:hover:border-blue-500/50 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-all duration-200 text-left group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-blue to-blue-600 text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                    {athlete.name.split(' ').map(s => s[0]).join('')}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-pivot-900 dark:text-white truncate flex items-center gap-1.5">
+                      {athlete.name}
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: athleteStatusColor(athlete) }}
+                        title={athlete.status}
+                      />
+                    </p>
+                    <p className="text-[10px] text-pivot-400 dark:text-slate-500 truncate">{athlete.position}</p>
+                  </div>
+                  <ArrowRight size={13} className="text-pivot-300 group-hover:text-accent-blue transition-colors shrink-0" />
+                </div>
+              </button>
+            ))}
+          </div>
           <div className="relative my-2">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-pivot-200 dark:border-slate-700" />

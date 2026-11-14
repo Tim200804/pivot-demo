@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Settings, Sun, Moon, Clock, User, Bell, Shield, LogOut, Edit3, Save, X, CheckCircle2 } from 'lucide-react'
+import { Settings, Sun, Moon, Clock, User, Bell, Shield, LogOut, Edit3, Save, X, CheckCircle2, Gamepad2, RotateCcw } from 'lucide-react'
 import Sidebar from '../ui/Sidebar'
 import { useTheme } from '../../context/ThemeContext'
 import { useUser } from '../../context/UserContext'
@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { isMockMode } from '../../config/api.js'
 import { apiUpdatePreferences, apiUpdateProfile } from '../../config/api.js'
+import { DEMO_COACH, DEMO_ATHLETES, athleteStatusColor, resetDemoWorld } from '../../config/mockBackend'
 
 function Toast({ message, visible }) {
   return (
@@ -53,6 +54,31 @@ export default function SettingsPage({ role }) {
   const showToast = (msg) => {
     setToast({ visible: true, message: msg })
     setTimeout(() => setToast({ visible: false, message: '' }), 2500)
+  }
+
+  // ── Demo Mode (mock only): identity switcher + world reset ──
+  const DEMO_PERSONAS = [
+    { ...DEMO_COACH, subtitle: DEMO_COACH.coachRole },
+    ...DEMO_ATHLETES.map(a => ({ ...a, subtitle: a.position })),
+  ]
+
+  const handleSwitchPersona = (persona) => {
+    if (persona.id === user?.id) return
+    login(persona, false)
+    const home = persona.role === 'coach' ? '/coach' : '/athlete'
+    navigate(home)
+    window.location.reload()
+  }
+
+  const handleResetDemo = () => {
+    const okConfirm = window.confirm(
+      'Reset ALL demo data to the initial state?\n\nEvery substitution request and message returns to its starting point. This cannot be undone.'
+    )
+    if (!okConfirm) return
+    resetDemoWorld()
+    logout()
+    const base = import.meta.env.BASE_URL || '/'
+    window.location.href = `${base}login?reset=1`
   }
 
   const handleSaveProfile = async () => {
@@ -323,6 +349,57 @@ export default function SettingsPage({ role }) {
               </label>
             </div>
           </motion.div>
+
+          {/* Demo Mode — mock only: switch persona / reset world */}
+          {isMockMode() && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="glass-card p-5 border border-indigo-200 dark:border-indigo-800/30">
+              <div className="flex items-center gap-2 mb-1">
+                <Gamepad2 size={14} className="text-indigo-400" />
+                <h3 className="text-sm font-semibold text-indigo-500">Demo Mode</h3>
+              </div>
+              <p className="text-xs text-pivot-400 dark:text-slate-500 mb-4">
+                Switch between demo accounts to see the substitution flow from every side. All personas in this browser share one demo world.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                {DEMO_PERSONAS.map((persona) => {
+                  const isCurrent = persona.id === user?.id
+                  return (
+                    <button
+                      key={persona.id}
+                      type="button"
+                      onClick={() => handleSwitchPersona(persona)}
+                      disabled={isCurrent}
+                      className={`p-2.5 rounded-xl border text-left transition-all duration-200 flex items-center gap-2 ${
+                        isCurrent
+                          ? 'border-accent-blue bg-blue-50 dark:bg-blue-900/20 cursor-default'
+                          : 'border-pivot-200 dark:border-slate-600 hover:border-accent-blue dark:hover:border-blue-500/50 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 active:scale-[0.98]'
+                      }`}
+                    >
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${persona.role === 'coach' ? 'bg-gradient-to-br from-accent-teal to-teal-600' : 'bg-gradient-to-br from-accent-blue to-blue-600'}`}>
+                        {persona.name.split(' ').map(s => s[0]).join('')}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-semibold truncate flex items-center gap-1 ${isCurrent ? 'text-accent-blue' : 'text-pivot-900 dark:text-white'}`}>
+                          {persona.name}
+                          {persona.role === 'athlete' && (
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: athleteStatusColor(persona) }} />
+                          )}
+                        </p>
+                        <p className="text-[10px] text-pivot-400 dark:text-slate-500 truncate">{persona.subtitle}{isCurrent ? ' · current' : ''}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              <button
+                onClick={handleResetDemo}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-pivot-50 dark:bg-slate-800/60 border border-pivot-200 dark:border-slate-600 text-pivot-600 dark:text-slate-300 text-sm font-medium hover:border-rose-300 dark:hover:border-rose-700 hover:text-rose-600 dark:hover:text-rose-400 transition-colors active:scale-[0.98]"
+              >
+                <RotateCcw size={16} />
+                Reset demo data to initial state
+              </button>
+            </motion.div>
+          )}
 
           {/* Account */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card p-5 border border-rose-200 dark:border-rose-800/30">

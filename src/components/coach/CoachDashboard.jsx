@@ -76,7 +76,8 @@ export default function CoachDashboard() {
   const [teamSummary, setTeamSummary] = useState(null)
 
   const athletes = useMemo(() => {
-    if (isMockMode()) return []
+    // Mock mode: AlertContext already supplies the mock roster (ATHLETES from mockData)
+    if (isMockMode()) return realAthletes
     return teamSummary?.athletes?.length ? teamSummary.athletes : realAthletes
   }, [teamSummary, realAthletes])
 
